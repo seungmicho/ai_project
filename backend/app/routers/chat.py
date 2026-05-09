@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.chat import ChatMessage
 from app.schemas import MessageRequest, MessageResponse
-from app.servives.claude_servive import chat_with_claude
+from app.services.gemini_service import chat_with_gemini
 
 router = APIRouter()
 

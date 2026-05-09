@@ -5,7 +5,7 @@ from datetime import datetime, date
 from app.database import get_db
 from app.models.schedule import Schedule
 from app.schemas import ScheduleCreate, ScheduleResponse
-from app.servives.claude_servive import chat_with_claude
+from app.services.gemini_service import chat_with_gemini
 
 router = APIRouter()
 
