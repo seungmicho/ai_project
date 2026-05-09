@@ -66,5 +66,5 @@ async def get_briefing(db: Session = Depends(get_db)):
             "content": f"오늘 날짜는 {today}입니다. 다음 일정을 바탕으로 친절하게 하루 브리핑을 해주세요.\n{schedule_text}",
         }
     ]
-    briefing = chat_with_claude(messages)
+    briefing = chat_with_gemini(messages)
     return {"briefing": briefing}

@@ -61,5 +61,5 @@ async def get_recommendation(weather: str = "맑음", temperature: int = 20, db:
             ),
         }
     ]
-    recommendation = chat_with_claude(messages)
+    recommendation = chat_with_gemini(messages)
     return {"recommendation": recommendation}

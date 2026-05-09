@@ -21,7 +21,7 @@ async def send_message(req: MessageRequest, db: Session = Depends(get_db)):
     messages = [{"role": msg.role, "content": msg.content} for msg in history]
     messages.append({"role": "user", "content": req.message})
 
-    reply = chat_with_claude(messages)
+    reply = chat_with_gemini(messages)
 
     # 사용자 메시지 & AI 응답 저장
     db.add(ChatMessage(role="user", content=req.message))
