@@ -7,7 +7,7 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-1.5-flash:generateContent"
+    "gemini-2.0-flash:generateContent"
 )
 
 SYSTEM_PROMPT = """당신은 친절하고 유능한 한국어 개인비서입니다.
