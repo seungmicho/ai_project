@@ -14,16 +14,13 @@ class MessageResponse(BaseModel):
 class ScheduleCreate(BaseModel):
     title: str
     description: str = ""
-    start_time: datetime
-    end_time: Optional[datetime] = None
-
+    date: datetime
 
 class ScheduleResponse(BaseModel):
     id: int
     title: str
     description: str
-    start_time: datetime
-    end_time: Optional[datetime]
+    date: datetime
     created_at: datetime
 
     class Config:

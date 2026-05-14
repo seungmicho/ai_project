@@ -12,7 +12,7 @@ router = APIRouter()
 
 @router.get("/", response_model=list[ScheduleResponse])
 async def get_schedules(db: Session = Depends(get_db)):
-    return db.query(Schedule).order_by(Schedule.start_time.asc()).all()
+    return db.query(Schedule).order_by(Schedule.date.asc()).all()
 
 
 @router.post("/", response_model=ScheduleResponse)
@@ -20,8 +20,7 @@ async def create_schedule(data: ScheduleCreate, db: Session = Depends(get_db)):
     schedule = Schedule(
         title=data.title,
         description=data.description,
-        start_time=data.start_time,
-        end_time=data.end_time,
+        date=data.date,
     )
     db.add(schedule)
     db.commit()
@@ -44,9 +43,9 @@ async def get_briefing(db: Session = Depends(get_db)):
     today = date.today()
     schedules = (
         db.query(Schedule)
-        .filter(Schedule.start_time >= datetime(today.year, today.month, today.day))
-        .filter(Schedule.start_time < datetime(today.year, today.month, today.day + 1))
-        .order_by(Schedule.start_time.asc())
+        .filter(Schedule.date >= datetime(today.year, today.month, today.day))
+        .filter(Schedule.date < datetime(today.year, today.month, today.day + 1))
+        .order_by(Schedule.date.asc())
         .all()
     )
 
@@ -54,7 +53,7 @@ async def get_briefing(db: Session = Depends(get_db)):
         schedule_text = "오늘 등록된 일정이 없습니다."
     else:
         items = "\n".join(
-            f"- {s.start_time.strftime('%H:%M')} {s.title}"
+            f"- {s.date.strftime('%H:%M')} {s.title}"
             + (f" ({s.description})" if s.description else "")
             for s in schedules
         )
