@@ -1,65 +1,123 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
-
 from app.database import get_db
-from app.models.clothing import ClothingItem
-from app.schemas import ClothingCreate, ClothingResponse
-from app.services.gemini_service import chat_with_gemini
+from app.models.history import OutfitHistory
+from app.services.weather_service import get_current_weather, get_outfit_season
 
 router = APIRouter()
 
 
-@router.get("/", response_model=list[ClothingResponse])
-async def get_wardrobe(db: Session = Depends(get_db)):
-    return db.query(ClothingItem).all()
+class ClothingItemCreate(BaseModel):
+    name: str
+    category: str   # 상의 | 하의 | 아우터 | 신발 | 기타
+    color: str = ""
+    tags: str = ""  # 쉼표 구분 (예: "캐주얼,봄,얇은")
+    image_url: str = ""
 
 
-@router.post("/", response_model=ClothingResponse)
-async def add_clothing(data: ClothingCreate, db: Session = Depends(get_db)):
-    item = ClothingItem(
-        name=data.name,
-        category=data.category,
-        color=data.color,
-        tags=data.tags,
-        image_url=data.image_url,
-    )
-    db.add(item)
-    db.commit()
-    db.refresh(item)
-    return item
+# 임시 인메모리 옷장 (추후 DB로 교체)
+wardrobe_db: list[dict] = []
+next_id = 1
+
+
+@router.get("/")
+async def get_wardrobe():
+    """등록된 옷 목록 전체 조회"""
+    return {"items": wardrobe_db, "total": len(wardrobe_db)}
+
+
+@router.post("/")
+async def add_clothing(item: ClothingItemCreate):
+    """옷 등록"""
+    global next_id
+    new_item = {"id": next_id, **item.model_dump()}
+    wardrobe_db.append(new_item)
+    next_id += 1
+    return {"message": "옷이 등록됐어요!", "item": new_item}
 
 
 @router.delete("/{item_id}")
-async def delete_clothing(item_id: int, db: Session = Depends(get_db)):
-    item = db.query(ClothingItem).filter(ClothingItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="옷을 찾을 수 없습니다.")
-    db.delete(item)
-    db.commit()
-    return {"message": f"'{item.name}'이(가) 삭제되었습니다."}
+async def delete_clothing(item_id: int):
+    """옷 삭제"""
+    global wardrobe_db
+    before = len(wardrobe_db)
+    wardrobe_db = [i for i in wardrobe_db if i["id"] != item_id]
+    if len(wardrobe_db) == before:
+        raise HTTPException(status_code=404, detail="해당 아이템을 찾을 수 없어요.")
+    return {"message": f"아이템 {item_id}이 삭제됐어요."}
 
 
 @router.get("/recommend")
-async def get_recommendation(weather: str = "맑음", temperature: int = 20, db: Session = Depends(get_db)):
-    items = db.query(ClothingItem).all()
+async def get_recommendation(city: str = "Seoul", db: Session = Depends(get_db)):
+    """날씨 기반 코디 추천 + 히스토리 저장"""
+    # 1. 날씨 조회
+    try:
+        weather = await get_current_weather(city)
+    except Exception:
+        raise HTTPException(status_code=502, detail="날씨 정보를 불러오지 못했어요. API 키를 확인해주세요.")
 
-    if not items:
-        return {"recommendation": "등록된 옷이 없습니다. 먼저 옷장에 옷을 추가해 주세요."}
+    # 2. 옷차림 단계 분류
+    season = get_outfit_season(weather["temp"])
 
-    wardrobe_text = "\n".join(
-        f"- {item.name} ({item.category}, {item.color}, 태그: {item.tags})"
-        for item in items
-    )
-
-    messages = [
-        {
-            "role": "user",
-            "content": (
-                f"오늘 날씨는 '{weather}'이고 기온은 {temperature}°C입니다.\n"
-                f"내 옷장 목록:\n{wardrobe_text}\n\n"
-                "위 옷들 중에서 오늘 날씨에 어울리는 코디를 추천해 주세요."
-            ),
-        }
+    # 3. 태그 기반 추천
+    season_keywords = {
+        "매우 더움": ["여름", "반팔", "반바지", "얇은"],
+        "더움":     ["여름", "반팔", "얇은"],
+        "따뜻함":   ["봄", "가을", "긴팔", "가디건"],
+        "선선함":   ["봄", "가을", "자켓", "가디건"],
+        "쌀쌀함":   ["겨울", "코트", "니트", "두꺼운"],
+        "매우 추움": ["겨울", "패딩", "두꺼운", "방한"],
+    }
+    keywords = season_keywords.get(season, [])
+    recommended = [
+        item for item in wardrobe_db
+        if any(kw in item.get("tags", "").split(",") for kw in keywords)
     ]
-    recommendation = chat_with_gemini(messages)
-    return {"recommendation": recommendation}
+
+    # 4. 추천 히스토리 DB 저장 ✅
+    history_entry = OutfitHistory(
+        city=city,
+        temp=weather["temp"],
+        feels_like=weather["feels_like"],
+        description=weather["description"],
+        outfit_season=season,
+        recommended_ids=",".join(str(i["id"]) for i in recommended),
+    )
+    db.add(history_entry)
+    db.commit()
+
+    return {
+        "weather": weather,
+        "outfit_season": season,
+        "recommended_items": recommended,
+        "tip": f"오늘 {weather['city']}은 {weather['temp']}℃ ({season})이에요. "
+               f"체감온도는 {weather['feels_like']}℃예요.",
+    }
+
+
+@router.get("/history")
+async def get_outfit_history(limit: int = 20, db: Session = Depends(get_db)):
+    """코디 추천 히스토리 조회"""
+    records = (
+        db.query(OutfitHistory)
+        .order_by(OutfitHistory.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return {
+        "history": [
+            {
+                "id": r.id,
+                "city": r.city,
+                "temp": r.temp,
+                "feels_like": r.feels_like,
+                "description": r.description,
+                "outfit_season": r.outfit_season,
+                "recommended_ids": r.recommended_ids.split(",") if r.recommended_ids else [],
+                "created_at": r.created_at.isoformat(),
+            }
+            for r in records
+        ],
+        "total": len(records),
+    }
