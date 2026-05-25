@@ -1,3 +1,4 @@
+from backend.app.models import calendar_agent
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 import os
@@ -27,5 +28,5 @@ def get_db():
 
 def init_db():
     """앱 시작 시 테이블 자동 생성"""
-    from app.models import schedule, clothing, chat  # noqa: F401 — 모델 임포트로 테이블 등록
+    from app.models import clothing, chat  # noqa: F401 — 모델 임포트로 테이블 등록
     Base.metadata.create_all(bind=engine)

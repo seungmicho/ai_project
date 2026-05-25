@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, date
 
 from app.database import get_db
-from app.models.schedule import Schedule
+from backend.app.models.calendar_agent import Schedule
 from app.schemas import ScheduleCreate, ScheduleResponse
 from app.services.gemini_service import chat_with_gemini
 
