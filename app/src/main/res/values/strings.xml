@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">CapstoneAssistant_na</string>
+    <string name="navigation_drawer_open">메뉴 열기</string>
+    <string name="navigation_drawer_close">메뉴 닫기</string>
+    <string name="server_client_id">207472864064-jmpb7d4qis3r5i2onbtacnde53arpaad.apps.googleusercontent.com</string>
+</resources>
