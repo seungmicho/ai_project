@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.drawerlayout.widget.DrawerLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/drawerLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#121212">
+
+    <LinearLayout
+        android:id="@+id/mainRootLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="#121212">
+
+        <LinearLayout
+            android:id="@+id/topBarLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="12dp"
+            android:gravity="center_vertical"
+            android:background="#1E1E1E">
+
+            <TextView
+                android:id="@+id/menuButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="☰"
+                android:textSize="28sp"
+                android:textColor="#FFFFFF"
+                android:padding="8dp" />
+
+            <TextView
+                android:id="@+id/titleText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="나의 AI 비서"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:gravity="center" />
+
+            <TextView
+                android:layout_width="44dp"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/chatRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:padding="12dp"
+            android:background="#121212" />
+
+        <LinearLayout
+            android:id="@+id/inputLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="10dp"
+            android:background="#1E1E1E">
+
+            <EditText
+                android:id="@+id/messageEditText"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:hint="비서에게 부탁하기..."
+                android:textColor="#FFFFFF"
+                android:textColorHint="#AAAAAA"
+                android:background="#2A2A2A"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:singleLine="true" />
+
+            <Button
+                android:id="@+id/sendButton"
+                android:layout_width="60dp"
+                android:layout_height="48dp"
+                android:text="➤"
+                android:textSize="18sp"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/menuLayout"
+        android:layout_width="280dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:orientation="vertical"
+        android:background="#1E1E1E"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="80dp"
+        android:paddingBottom="24dp">
+
+        <TextView
+            android:id="@+id/menuTitleText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="개인 비서 메뉴"
+            android:textColor="#FFFFFF"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:paddingBottom="24dp" />
+
+        <View
+            android:id="@+id/menuDivider"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#444444"
+            android:layout_marginBottom="20dp" />
+
+        <TextView
+            android:id="@+id/scheduleMenu"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📅  일정"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:paddingTop="16dp"
+            android:paddingBottom="16dp" />
+
+        <TextView
+            android:id="@+id/routeMenu"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🗺️  경로"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:paddingTop="16dp"
+            android:paddingBottom="16dp" />
+
+        <TextView
+            android:id="@+id/clothesMenu"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="👕  옷 추천"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:paddingTop="16dp"
+            android:paddingBottom="16dp" />
+
+        <TextView
+            android:id="@+id/alarmMenu"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⏰  알람"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:paddingTop="16dp"
+            android:paddingBottom="16dp" />
+
+        <TextView
+            android:id="@+id/weatherMenu"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🌥️  날씨"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:paddingTop="16dp"
+            android:paddingBottom="16dp" />
+
+        <TextView
+            android:id="@+id/settingMenu"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⚙️  설정"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:paddingTop="16dp"
+            android:paddingBottom="16dp" />
+
+    </LinearLayout>
+
+</androidx.drawerlayout.widget.DrawerLayout>
