@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, date
 
 from app.database import get_db
-from backend.app.models.calendar_agent import Schedule
+from app.models.schedule import Schedule
 from app.schemas import ScheduleCreate, ScheduleResponse
 from app.services.gemini_service import chat_with_gemini
 
@@ -59,11 +59,6 @@ async def get_briefing(db: Session = Depends(get_db)):
         )
         schedule_text = f"오늘 일정:\n{items}"
 
-    messages = [
-        {
-            "role": "user",
-            "content": f"오늘 날짜는 {today}입니다. 다음 일정을 바탕으로 친절하게 하루 브리핑을 해주세요.\n{schedule_text}",
-        }
-    ]
-    briefing = chat_with_gemini(messages)
+    prompt = f"오늘 날짜는 {today}입니다. 다음 일정을 바탕으로 친절하게 하루 브리핑을 해주세요.\n{schedule_text}"
+    briefing = await chat_with_gemini(message=prompt)
     return {"briefing": briefing}
