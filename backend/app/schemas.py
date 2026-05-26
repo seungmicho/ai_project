@@ -1,30 +1,4 @@
 from pydantic import BaseModel
-from datetime import datetime
-from typing import Optional
-
-
-class MessageRequest(BaseModel):
-    message: str
-
-
-class MessageResponse(BaseModel):
-    reply: str
-
-
-class ScheduleCreate(BaseModel):
-    title: str
-    description: str = ""
-    date: datetime
-
-class ScheduleResponse(BaseModel):
-    id: int
-    title: str
-    description: str
-    date: datetime
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class ClothingCreate(BaseModel):

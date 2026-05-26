@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
-from app.routers import chat, schedule, wardrobe
+from app.routers import wardrobe
 from app.database import init_db
 
 load_dotenv()
@@ -18,8 +18,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="AI 개인비서 API",
-    description="일정 관리, 날씨 코디 추천, AI 챗봇 백엔드 서버",
+    title="패션 AI 어시스턴트 API",
+    description="날씨 기반 코디 추천, 옷장 관리 백엔드 서버",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -32,6 +32,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(chat.router, prefix="/chat", tags=["챗봇"])
-app.include_router(schedule.router, prefix="/schedules", tags=["일정"])
 app.include_router(wardrobe.router, prefix="/wardrobe", tags=["옷장"])
