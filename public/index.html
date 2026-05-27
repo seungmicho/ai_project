@@ -1,0 +1,561 @@
+<!-- ver 1.3 -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>출발 시간 계산기</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
+      color: #1f2937;
+    }
+
+    .wrap {
+      min-height: 100vh;
+      display: flex;
+      gap: 24px;
+      padding: 24px;
+    }
+
+    .card {
+      width: 420px;
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      flex-shrink: 0;
+    }
+
+    .map-panel {
+      flex: 1;
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      min-width: 0;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      min-height: 700px;
+      border-radius: 16px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    .sub {
+      margin: 0 0 24px;
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 8px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    input,
+    button,
+    select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #d1d5db;
+      font-size: 15px;
+    }
+
+    input:focus,
+    select.focus {
+      outline: none;
+      border-color: #111827;
+    }
+
+    button {
+      margin-top: 20px;
+      border: none;
+      background: #111827;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: 0.95;
+    }
+
+    .result {
+      margin-top: 22px;
+      padding: 16px;
+      border-radius: 14px;
+      background: #f3f4f6;
+      min-height: 180px;
+      white-space: pre-line;
+      line-height: 1.8;
+      font-size: 14px;
+    }
+
+    .route-cards {
+      margin-top: 14px;
+    }
+
+    .route-card {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 12px;
+      margin-top: 10px;
+    }
+
+    .route-card-title {
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .route-card-detail {
+      color: #4b5563;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .error {
+      color: #b91c1c;
+    }
+
+    .loading {
+      color: #374151;
+    }
+
+    .favorite-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .favorite-btn {
+      width: auto;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      cursor: pointer;
+      font-size: 13px;
+      color: #111827;
+    }
+
+    .favorite-btn:hover {
+      background: #f3f4f6;
+    }
+
+    .input-active {
+      border-color: #2563eb !important;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>출발 시간 계산기</h1>
+      <!-- <p class="sub">카카오 자동차 경로 기준으로 추천 출발 시간을 계산합니다.</p> -->
+
+      <label for="start">출발지</label>
+      <input id="start" type="text" placeholder="예: 강남역" />
+
+      <label for="end">도착지</label>
+      <input id="end" type="text" placeholder="예: 한국외국어대학교" />
+
+      <label for="time">도착 시간</label>
+      <input id="time" type="text" placeholder="예: 13:00" />
+
+      <label for="transport">이동 수단</label>
+      <select id="transport">
+        <option value="car">자동차</option>
+        <option value="transit">대중교통</option>
+      </select>
+
+      <label>즐겨찾기 장소</label>
+      <div id="activeTargetInfo" style="margin-bottom: 8px; font-size: 13px; color: #6b7280;">
+        현재 선택된 입력칸: 없음
+      </div>
+      <div id="favoriteButtons" class="favorite-buttons"></div>
+
+      <button onclick="calculate()">계산하기</button>
+
+      <div id="result" class="result">
+여기에 결과가 표시됩니다.
+      </div>
+    </div>
+
+    <div class="map-panel">
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=34c0bf06c116e1a855b80861d5f7e575"></script>
+
+  <script>
+    let map;
+    let startMarker = null;
+    let endMarker = null;
+    let polyline = null;
+    let transitPolylines = [];
+    let transferMarkers = [];
+
+    const favoritePlaces = [
+      { name: '집', keyword: '수원역' },
+      { name: '학교', keyword: '한국외국어대학교 글로벌캠퍼스' },
+      { name: '자취방', keyword: '외대사거리' },  
+    ];
+
+    let activeInput = null;
+
+    function initMap() {
+      const container = document.getElementById('map');
+      const options = {
+        center: new kakao.maps.LatLng(37.5665, 126.9780),
+        level: 6
+      };
+      map = new kakao.maps.Map(container, options);
+    }
+
+    function setActiveInput(inputElement, label) {
+      activeInput = inputElement;
+
+      document.getElementById('start').classList.remove('input-active');
+      document.getElementById('end').classList.remove('input-active');
+
+      inputElement.classList.add('input-active');
+
+      document.getElementById('activeTargetInfo').innerText =
+        `현재 선택된 입력칸: ${label}`;
+    }
+
+    function applyFavorite(keyword) {
+      if (!activeInput) {
+        alert('먼저 출발지 또는 도착지 입력칸을 선택하세요.');
+        return;
+      }
+
+      activeInput.value = keyword;
+    }
+
+    function renderFavoriteButtons() {
+      const container = document.getElementById('favoriteButtons');
+      container.innerHTML = '';
+
+      favoritePlaces.forEach(place => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'favorite-btn';
+        btn.innerText = place.name;
+        btn.onclick = () => applyFavorite(place.keyword);
+        container.appendChild(btn);
+      });
+    }
+
+    window.onload = function () {
+      const checkKakao = setInterval(() => {
+        if (window.kakao && window.kakao.maps) {
+          clearInterval(checkKakao);
+          initMap();
+          renderFavoriteButtons();
+
+          const startInput = document.getElementById('start');
+          const endInput = document.getElementById('end');
+
+          startInput.addEventListener('click', () => setActiveInput(startInput, '출발지'));
+          endInput.addEventListener('click', () => setActiveInput(endInput, '도착지'));
+        }
+      }, 100);
+
+      setTimeout(() => {
+        if (!(window.kakao && window.kakao.maps)) {
+          clearInterval(checkKakao);
+          console.error('카카오 지도 SDK 로드 실패');
+        }
+      }, 3000);
+    };
+
+    function clearMapObjects() {
+      if (startMarker) startMarker.setMap(null);
+      if (endMarker) endMarker.setMap(null);
+      if (polyline) polyline.setMap(null);
+
+      transitPolylines.forEach(line => line.setMap(null));
+      transferMarkers.forEach(marker => marker.setMap(null));
+
+      transitPolylines = [];
+      transferMarkers = [];
+      polyline = null;
+    }
+
+    function drawRoute(data) {
+      clearMapObjects();
+
+      const startLatLng = new kakao.maps.LatLng(data.origin.y, data.origin.x);
+      const endLatLng = new kakao.maps.LatLng(data.destination.y, data.destination.x);
+
+      startMarker = new kakao.maps.Marker({
+        map: map,
+        position: startLatLng
+      });
+
+      endMarker = new kakao.maps.Marker({
+        map: map,
+        position: endLatLng
+      });
+
+      const linePath = data.path.map(point =>
+        new kakao.maps.LatLng(point.lat, point.lng)
+      );
+
+      polyline = new kakao.maps.Polyline({
+        path: linePath,
+        strokeWeight: 5,
+        strokeColor: '#2563eb',
+        strokeOpacity: 0.9,
+        strokeStyle: 'solid'
+      });
+
+      polyline.setMap(map);
+
+      const bounds = new kakao.maps.LatLngBounds();
+      bounds.extend(startLatLng);
+      bounds.extend(endLatLng);
+
+      for (const point of linePath) {
+        bounds.extend(point);
+      }
+
+      map.setBounds(bounds);
+
+      setTimeout(() => {
+        const level = map.getLevel();
+        if (level < 3) {
+          map.setLevel(3);
+        }
+      }, 100);
+    }
+
+    function drawTransitSegments(data) {
+      clearMapObjects();
+
+      const startLatLng = new kakao.maps.LatLng(data.origin.y, data.origin.x);
+      const endLatLng = new kakao.maps.LatLng(data.destination.y, data.destination.x);
+
+      startMarker = new kakao.maps.Marker({
+        map,
+        position: startLatLng
+      });
+
+      endMarker = new kakao.maps.Marker({
+        map,
+        position: endLatLng
+      });
+
+      const bounds = new kakao.maps.LatLngBounds();
+
+      bounds.extend(startLatLng);
+      bounds.extend(endLatLng);
+
+      data.routeSegments.forEach((segment, index) => {
+        const linePath = segment.path.map(point =>
+          new kakao.maps.LatLng(point.lat, point.lng)
+        );
+
+        const strokeStyle = segment.mode === 'WALK' ? 'shortdash' : 'solid';
+
+        const line = new kakao.maps.Polyline({
+          path: linePath,
+          strokeWeight: segment.mode === 'WALK' ? 4 : 6,
+          strokeColor: segment.routeColor ? `#${segment.routeColor}` : '#2563eb',
+          strokeOpacity: 0.9,
+          strokeStyle
+        });
+
+        line.setMap(map);
+        transitPolylines.push(line);
+
+        linePath.forEach(point => bounds.extend(point));
+
+        if (segment.start) {
+          const markerPosition = new kakao.maps.LatLng(segment.start.lat, segment.start.lng);
+
+          const modeLabel =
+            segment.mode === 'WALK' ? '도보' :
+            segment.mode === 'BUS' ? '버스' :
+            segment.mode === 'SUBWAY' ? '지하철' :
+            '이동';
+
+          const marker = new kakao.maps.Marker({
+            map,
+            position: markerPosition,
+            title: `${index + 1}. ${modeLabel} 시작: ${segment.startName}`
+          });
+
+          transferMarkers.push(marker);
+        }
+      });
+
+      map.setBounds(bounds);
+
+      setTimeout(() => {
+        const level = map.getLevel();
+        if (level < 3) {
+          map.setLevel(3);
+        }
+      }, 100);
+    }
+
+    function createRouteCards(routeSteps) {
+      if (!routeSteps || routeSteps.length === 0) {
+        return '';
+      }
+
+      const modeIcon = {
+        WALK: '🚶',
+        BUS: '🚌',
+        SUBWAY: '🚇'
+      };
+
+      const modeLabel = {
+        WALK: '도보',
+        BUS: '버스',
+        SUBWAY: '지하철'
+      };
+
+      const cards = routeSteps.map((step, index) => {
+        const label = modeLabel[step.mode] || step.mode || '이동';
+        const icon = modeIcon[step.mode] || '➡️';
+        const timeText = step.sectionTime
+          ? `${Math.ceil(step.sectionTime / 60)}분`
+          : '';
+
+        const routeNameText = step.routeName
+          ? ` / ${step.routeName}`
+          : '';
+
+        const descriptionText = step.descriptions && step.descriptions.length > 0
+          ? `<br>${step.descriptions.slice(0, 2).join('<br>')}`
+          : '';
+
+        return `
+          <div class="route-card">
+            <div class="route-card-title">
+              ${index + 1}. ${icon} ${label}${routeNameText}
+            </div>
+            <div class="route-card-detail">
+              ${step.startName || '출발지'} → ${step.endName || '도착지'}<br>
+              ${timeText ? `소요 시간: ${timeText}` : ''}
+              ${descriptionText}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="route-cards">
+          <strong>[대중교통 상세 안내]</strong>
+          ${cards}
+        </div>
+      `;
+    }
+
+    async function calculate() {
+      const start = document.getElementById('start').value.trim();
+      const end = document.getElementById('end').value.trim();
+      const time = document.getElementById('time').value.trim();
+      const transport = document.getElementById('transport').value;
+      const resultBox = document.getElementById('result');
+
+      if (!start || !end || !time) {
+        resultBox.className = 'result error';
+        resultBox.innerText = '출발지, 도착지, 도착 시간을 모두 입력하세요.';
+        return;
+      }
+
+      resultBox.className = 'result loading';
+      resultBox.innerText = '계산 중...';
+
+      try {
+        const response = await fetch('/calculate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ start, end, time, transport })
+        });
+
+        console.log('response.status:', response.status)
+
+        const data = await response.json();
+        console.log('response.data:', data)
+
+        if (data.error) {
+          resultBox.className = 'result error';
+          resultBox.innerText = `오류: ${data.error}`;
+          return;
+        }
+
+        const simulationText = data.simulations
+          .map(sim =>
+            `- ${sim.label}: ${sim.departureTime} 출발 → ${sim.arrivalTime} 도착 (${sim.status})`
+          )
+          .join('\n');
+
+        resultBox.className = 'result';
+        const routeCardsHtml = createRouteCards(
+          data.routeSteps && data.routeSegments.length > 0
+            ? data.routeSegments
+            : data.routeSteps
+        );
+
+        resultBox.innerHTML =
+          `<strong>[알림]</strong><br>${data.mainMessage}<br>${data.detailMessage}<br><br>` +
+          `출발지: ${data.startPlaceName}<br>` +
+          `출발지 주소: ${data.startAddressName}<br><br>` +
+          `도착지: ${data.endPlaceName}<br>` +
+          `도착지 주소: ${data.endAddressName}<br><br>` +
+          `이동 수단: ${data.transportLabel}<br>` +
+          `예상 이동 시간: ${data.travelTimeText}<br>` +
+          `예상 이동 거리: ${data.distanceKm}km<br>` +
+          `추천 출발 시간: ${data.departure}<br>` +
+          `지금 출발하면 도착 시각: ${data.currentArrivalTime}<br>` +
+          `위험도: ${data.riskLevel}<br><br>` +
+          `<strong>[시간 시뮬레이션]</strong><br>${simulationText.replaceAll('\n', '<br>')}` +
+          routeCardsHtml;
+
+        try {
+          if (data.routeSegments && data.routeSegments.length > 0) {
+            drawTransitSegments(data);
+          } else if (data.path && Array.isArray(data.path) && data.path.length > 0) {
+            drawRoute(data);
+          }
+        } catch (mapError) {
+          console.error('지도 그리기 오류:', mapError);
+        }
+
+      } catch (error) {
+        console.error('calculate error:', error)
+        resultBox.className = 'result error';
+        resultBox.innerText = `요청 중 오류가 발생했습니다.\n${error.message}`;
+      }
+    }
+  </script>
+</body>
+</html>
+
