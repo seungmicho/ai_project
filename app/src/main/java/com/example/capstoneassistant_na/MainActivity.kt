@@ -8,7 +8,13 @@ import androidx.appcompat.widget.Toolbar
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import com.example.capstoneassistant_na.ui.schedule.ScheduleFragment
+import com.example.capstoneassistant_na.ui.chat.ChatFragment
+import com.example.capstoneassistant_na.data.api.RetrofitClient
 import com.google.android.material.navigation.NavigationView
+import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
     private lateinit var drawerLayout: DrawerLayout
@@ -16,6 +22,22 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // FCM 토큰 자동 저장
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        RetrofitClient.instance.saveDeviceToken(
+                            mapOf("token" to token, "user_id" to "default")
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
 
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
@@ -47,6 +69,12 @@ class MainActivity : AppCompatActivity() {
                     supportActionBar?.title = "내 일정"
                     supportFragmentManager.beginTransaction()
                         .replace(R.id.fragmentContainer, ScheduleFragment())
+                        .commit()
+                }
+                R.id.nav_chat -> {
+                    supportActionBar?.title = "AI 챗봇"
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.fragmentContainer, ChatFragment())
                         .commit()
                 }
             }

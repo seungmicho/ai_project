@@ -88,14 +88,15 @@ _TOOLS = [
         ),
         types.FunctionDeclaration(
             name="create_schedule",
-            description="새로운 일정을 등록합니다. '오전 9시에 회의 추가해줘' 같은 요청에 사용합니다.",
+            description="새로운 일정을 등록합니다. '오전 9시에 회의 추가해줘', '매일 오전 10시에 약먹기' 같은 요청에 사용합니다. 반복 일정도 등록 가능합니다.",
             parameters={
                 "type": "object",
                 "properties": {
                     "title": {"type": "string", "description": "일정 제목"},
-                    "date":  {"type": "string", "description": "날짜 (YYYY-MM-DD)"},
+                    "date":  {"type": "string", "description": "날짜 (YYYY-MM-DD). 반복 일정이면 시작 날짜."},
                     "time":  {"type": "string", "description": "시작 시간 (HH:MM, 24시간제)"},
                     "description": {"type": "string", "description": "일정 상세 설명 (선택)"},
+                    "recurrence": {"type": "string", "description": "반복 규칙. 매일=DAILY, 매주=WEEKLY, 매월=MONTHLY, 없으면 빈 문자열"},
                 },
                 "required": ["title", "date", "time"]
             }
@@ -203,6 +204,7 @@ def _exec_create_schedule(args: dict, db=None) -> dict:
     date_str    = args.get("date", date.today().isoformat())
     time_str    = args.get("time", "09:00")
     description = args.get("description", "")
+    recurrence  = args.get("recurrence", "")
 
     try:
         dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
@@ -217,16 +219,35 @@ def _exec_create_schedule(args: dict, db=None) -> dict:
         "end":   {"dateTime": end_dt.isoformat(), "timeZone": "Asia/Seoul"},
     }
 
+    # 반복 규칙 추가
+    recurrence_map = {
+        "DAILY":   "RRULE:FREQ=DAILY",
+        "WEEKLY":  "RRULE:FREQ=WEEKLY",
+        "MONTHLY": "RRULE:FREQ=MONTHLY",
+    }
+    if recurrence and recurrence.upper() in recurrence_map:
+        event_body["recurrence"] = [recurrence_map[recurrence.upper()]]
+        recurrence_label = {"DAILY": "매일", "WEEKLY": "매주", "MONTHLY": "매월"}[recurrence.upper()]
+    else:
+        recurrence_label = None
+
     try:
         service = _get_calendar_service()
         event = service.events().insert(calendarId="primary", body=event_body).execute()
+
+        if recurrence_label:
+            msg = f"✅ '{title}' 일정이 {recurrence_label} {dt.strftime('%H:%M')}에 반복 등록됐어요!"
+        else:
+            msg = f"✅ '{title}' 일정이 {dt.strftime('%m월 %d일 %H:%M')}에 구글 캘린더에 등록됐어요!"
+
         return {
             "success": True,
             "id": event["id"],
             "title": title,
             "date": dt.strftime("%Y-%m-%d"),
             "time": dt.strftime("%H:%M"),
-            "message": f"✅ '{title}' 일정이 {dt.strftime('%m월 %d일 %H:%M')}에 구글 캘린더에 등록됐어요!",
+            "recurrence": recurrence_label,
+            "message": msg,
         }
     except Exception as e:
         logger.error("구글 캘린더 일정 생성 오류: %s", e)
@@ -387,12 +408,26 @@ async def chat_with_intent(
     db: Session,
     history: list | None = None,
 ) -> str:
+    today_str = datetime.now().strftime("%Y년 %m월 %d일 %H:%M")
     contents = list(history or [])
-    contents.append({"role": "user", "parts": [{"text": message}]})
+    contents.append({"role": "user", "parts": [{"text": f"[현재 시각: {today_str}]\n{message}"}]})
+
+    # 일정/옷/경로 관련 키워드 감지 → 함수 강제 호출 모드
+    schedule_keywords = ["일정", "등록", "추가", "넣어", "만들어", "삭제", "지워", "언제", "뭐 있"]
+    outfit_keywords = ["코디", "옷", "입어", "추천"]
+    route_keywords = ["경로", "가려면", "출발", "어떻게 가"]
+
+    all_keywords = schedule_keywords + outfit_keywords + route_keywords
+    force_tool = any(kw in message for kw in all_keywords)
 
     config = types.GenerateContentConfig(
         system_instruction=_SYSTEM_INSTRUCTION,
         tools=_TOOLS,
+        tool_config=types.ToolConfig(
+            function_calling_config=types.FunctionCallingConfig(
+                mode="ANY" if force_tool else "AUTO"
+            )
+        ),
     )
 
     # ── 1단계: Gemini 호출 (429 시 자동 재시도) ──
@@ -414,6 +449,7 @@ async def chat_with_intent(
                 raise RuntimeError(f"Gemini API 오류: {e}")
 
     # ── 2단계: Function Call 처리 (최대 3회) ──
+    print(f"[DEBUG] Gemini 응답 parts: {[str(p)[:100] for p in response.candidates[0].content.parts]}")
     for _ in range(3):
         fn_call = None
         for part in response.candidates[0].content.parts:
@@ -429,6 +465,7 @@ async def chat_with_intent(
         logger.info("Function Call: %s(%s)", fn_name, fn_args)
 
         # 함수 실행
+        print(f"[DEBUG] 함수 호출: {fn_name}, args: {fn_args}")
         try:
             if fn_name == "get_schedules":
                 fn_result = _exec_get_schedules(fn_args, db)
@@ -444,6 +481,7 @@ async def chat_with_intent(
                 fn_result = {"error": f"알 수 없는 함수: {fn_name}"}
         except Exception as e:
             fn_result = {"error": str(e)}
+        print(f"[DEBUG] 함수 결과: {fn_result}")
 
         # 함수 결과를 대화에 추가 후 재호출
         contents.append({"role": "model", "parts": [{"function_call": {"name": fn_name, "args": fn_args}}]})
@@ -452,12 +490,20 @@ async def chat_with_intent(
             "parts": [{"function_response": {"name": fn_name, "response": {"result": json.dumps(fn_result, ensure_ascii=False)}}}]
         })
 
+        # 함수 결과 받은 후엔 AUTO 모드로 텍스트 응답만 받기
+        followup_config = types.GenerateContentConfig(
+            system_instruction=_SYSTEM_INSTRUCTION,
+            tools=_TOOLS,
+            tool_config=types.ToolConfig(
+                function_calling_config=types.FunctionCallingConfig(mode="NONE")
+            ),
+        )
         for attempt in range(3):
             try:
                 response = await client.aio.models.generate_content(
                     model=MODEL,
                     contents=contents,
-                    config=config,
+                    config=followup_config,
                 )
                 break
             except Exception as e:

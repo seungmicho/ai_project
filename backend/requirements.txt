@@ -1,32 +1,14 @@
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
-google-generativeai==0.5.4
+google-generativeai>=0.7.2
 httpx==0.26.0
 sqlalchemy==2.0.25
 python-dotenv==1.0.0
 pydantic==2.5.3
 apscheduler==3.10.4
-firebase-admin==6.4.0
-# --- ?꾩닔 ?섏〈??---
-streamlit>=1.32
-pandas>=2.0
-python-dotenv>=1.0
 requests>=2.31
 Pillow>=10.0
-
-# AI / ML
 openai>=1.30
-google-genai>=0.3.0
 faiss-cpu>=1.7.4
 numpy>=1.26
-
-# --- ?좏깮 ?섏〈??---
-# Claude ?띿뒪??異붿쿇 ?대갚 (?놁뼱??OpenAI濡??먮룞 ?대갚)
 anthropic>=0.34
-
-# CLIP ???대?吏/?띿뒪???꾨쿋??硫붿씤 諛깅낯
-# (Gemini multimodal embedding??臾대즺 ?곗뼱?먯꽌 留됲???CLIP??硫붿씤?쇰줈 梨꾪깮)
-torch>=2.2
-# clip? pip濡?吏곸젒 ?ㅼ튂 ???섎땲源?git 二쇱냼濡?
-#   pip install git+https://github.com/openai/CLIP.git
-# (requirements.txt??git+ URL???ｌ쑝硫??쇰? ?섍꼍?먯꽌 留됲????덈궡留??곸뼱??
