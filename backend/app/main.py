@@ -2,11 +2,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+import os
+
+# .env 절대 경로로 지정
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 from app.routers import wardrobe
+from app.routers import chat
 from app.database import init_db
-
-load_dotenv()
 
 
 @asynccontextmanager
@@ -33,3 +37,4 @@ app.add_middleware(
 )
 
 app.include_router(wardrobe.router, prefix="/wardrobe", tags=["옷장"])
+app.include_router(chat.router, tags=["채팅"])
