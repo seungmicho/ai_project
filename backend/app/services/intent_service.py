@@ -113,6 +113,18 @@ _TOOLS = [
             }
         ),
         types.FunctionDeclaration(
+            name="delete_schedules_by_title",
+            description="제목(키워드)으로 앞으로의 일정을 검색해서 모두 삭제합니다. '약먹기 일정 다 지워줘', '앞으로의 모든 회의 삭제해줘' 같은 요청에 사용합니다.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "keyword": {"type": "string", "description": "삭제할 일정 제목에 포함된 키워드 (예: '약먹기', '회의')"},
+                    "delete_series": {"type": "boolean", "description": "반복 일정 전체 시리즈를 삭제할지 여부. 기본값 true."}
+                },
+                "required": ["keyword"]
+            }
+        ),
+        types.FunctionDeclaration(
             name="get_outfit_recommendation",
             description="현재 날씨를 기반으로 오늘 입을 옷을 추천합니다. '오늘 뭐 입어?', '코디 추천해줘' 같은 요청에 사용합니다.",
             parameters={
@@ -271,6 +283,61 @@ def _exec_delete_schedule(args: dict, db=None) -> dict:
         return {"success": False, "error": f"구글 캘린더 삭제 실패: {e}"}
 
 
+def _exec_delete_schedules_by_title(args: dict, db=None) -> dict:
+    keyword = args.get("keyword", "").strip()
+    delete_series = args.get("delete_series", True)
+    if not keyword:
+        return {"success": False, "error": "삭제할 일정 키워드를 알려주세요."}
+
+    try:
+        service = _get_calendar_service()
+        now = datetime.now().isoformat() + "+09:00"
+
+        # 앞으로 90일치 일정 조회
+        items = service.events().list(
+            calendarId="primary",
+            timeMin=now,
+            maxResults=100,
+            singleEvents=True,
+            orderBy="startTime",
+        ).execute().get("items", [])
+
+        matched = [i for i in items if keyword in i.get("summary", "")]
+        if not matched:
+            return {"success": True, "deleted": 0, "message": f"'{keyword}' 관련 앞으로의 일정이 없어요."}
+
+        deleted_count = 0
+        deleted_series = set()
+
+        for item in matched:
+            recurring_id = item.get("recurringEventId")
+            if delete_series and recurring_id:
+                # 반복 일정 시리즈 전체 삭제 (중복 방지)
+                if recurring_id not in deleted_series:
+                    try:
+                        service.events().delete(calendarId="primary", eventId=recurring_id).execute()
+                        deleted_series.add(recurring_id)
+                        deleted_count += 1
+                    except Exception:
+                        pass
+            else:
+                try:
+                    service.events().delete(calendarId="primary", eventId=item["id"]).execute()
+                    deleted_count += 1
+                except Exception:
+                    pass
+
+        return {
+            "success": True,
+            "keyword": keyword,
+            "deleted": deleted_count,
+            "message": f"🗑️ '{keyword}' 관련 일정 {deleted_count}개를 모두 삭제했어요!"
+        }
+    except Exception as e:
+        logger.error("일정 일괄 삭제 오류: %s", e)
+        return {"success": False, "error": f"일정 삭제 실패: {e}"}
+
+
 def _exec_get_outfit_recommendation(args: dict) -> dict:
     city = args.get("city", "서울")
     try:
@@ -413,7 +480,7 @@ async def chat_with_intent(
     contents.append({"role": "user", "parts": [{"text": f"[현재 시각: {today_str}]\n{message}"}]})
 
     # 일정/옷/경로 관련 키워드 감지 → 함수 강제 호출 모드
-    schedule_keywords = ["일정", "등록", "추가", "넣어", "만들어", "삭제", "지워", "언제", "뭐 있"]
+    schedule_keywords = ["일정", "등록", "추가", "넣어", "만들어", "삭제", "지워", "지워줘", "취소", "언제", "뭐 있"]
     outfit_keywords = ["코디", "옷", "입어", "추천"]
     route_keywords = ["경로", "가려면", "출발", "어떻게 가"]
 
@@ -473,6 +540,8 @@ async def chat_with_intent(
                 fn_result = _exec_create_schedule(fn_args, db)
             elif fn_name == "delete_schedule":
                 fn_result = _exec_delete_schedule(fn_args, db)
+            elif fn_name == "delete_schedules_by_title":
+                fn_result = _exec_delete_schedules_by_title(fn_args, db)
             elif fn_name == "get_outfit_recommendation":
                 fn_result = _exec_get_outfit_recommendation(fn_args)
             elif fn_name == "get_route":
